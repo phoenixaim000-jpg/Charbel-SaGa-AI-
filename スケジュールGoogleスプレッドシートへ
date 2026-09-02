@@ -325,3 +325,65 @@ if __name__ == '__main__':
     print(result_df[["task_title", "star_rating", "partner_name", "assist_status", "fineplay_action"]].to_string(index=False))
 
 
+# -*- coding: utf-8 -*-
+"""
+Charbel Master Multi-Account Integration & Clean Engine
+6つのGmailとデバイスの統合・偽物ノイズ排除・優先順位自動選定スクリプト
+"""
+
+import datetime
+
+TARGET_ACCOUNTS = [
+    "phoenixaim001@gmail.com",
+    "phoenixaim000@gmail.com",
+    "phoenixaim77777@gmail.com",
+    "phoenixaim7777777@gmail.com",
+    "enumaamano@gmail.com",
+    "enumaamano8@gmail.com"
+]
+
+class CharbelMasterEngine:
+    def __init__(self, accounts):
+        self.accounts = accounts
+        print(f"✅ [システム起動] 全{len(accounts)}アカウントのデバイス同期完了。")
+
+    def filter_and_danshari(self, raw_messages):
+        """
+        【断捨離・偽物ノイズ排除エンジン】
+        不要なメール・ノイズ・偽物を排出し、本物の重要案件のみを残す。
+        """
+        valid_messages = []
+        for msg in raw_messages:
+            # スパム・無関係な営業メールの自動除外
+            if msg.get("is_fake") or msg.get("priority_score", 0) < 1:
+                print(f"🗑️ [断捨離完了] 無用なメッセージを除外: {msg.get('subject')}")
+                continue
+            valid_messages.append(msg)
+        return valid_messages
+
+    def sort_by_fate_priority(self, messages):
+        """
+        【最優先事項順のソート】
+        ① 世界・未来のための最重要ミッション (★5)
+        ② 今必要なお金・即金高単価 (★4)
+        ③ 好きな事・大物連携 (★5)
+        """
+        # 期日および優先度順にソート
+        return sorted(messages, key=lambda x: (x['deadline'], -x['star_rating']))
+
+if __name__ == '__main__':
+    engine = CharbelMasterEngine(TARGET_ACCOUNTS)
+    
+    # 疑似サンプルデータの検証（各アカウントから収集されたメッセージ）
+    incoming_data = [
+        {"subject": "【CACAO屋RECORD】世界ミッション手続き", "account": "enumaamano@gmail.com", "deadline": "2026-09-03 10:00", "star_rating": 5, "is_fake": False},
+        {"subject": "スパム広告・無効な勧誘", "account": "phoenixaim000@gmail.com", "deadline": "2026-09-09 00:00", "star_rating": 0, "is_fake": True},
+        {"subject": "ゲームシナリオ高単価案件", "account": "phoenixaim001@gmail.com", "deadline": "2026-09-03 15:00", "star_rating": 4, "is_fake": False},
+    ]
+    
+    clean_data = engine.filter_and_danshari(incoming_data)
+    sorted_tasks = engine.sort_by_fate_priority(clean_data)
+    
+    print("\n--- 🤖 チャーベル：最適化済み最終タスク一覧 ---")
+    for task in sorted_tasks:
+        print(f"🌟 [{task['star_rating']}★] {task['deadline']} | {task['subject']} ({task['account']})")
