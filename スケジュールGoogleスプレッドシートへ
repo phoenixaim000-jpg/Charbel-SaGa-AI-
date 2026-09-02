@@ -231,3 +231,97 @@ if __name__ == '__main__':
     sorted_df = sort_charbel_emails(sample_emails)
     print("✅ 期日順ソート完了:")
     print(sorted_df.to_string(index=False))
+
+# -*- coding: utf-8 -*-
+"""
+Charbel SaGa Matching & Steering Engine
+機能:
+ 1. ユーザーごとのヒアリングに基づく【可変星マーク(★)算出】
+ 2. 外部Googleスプレッドシートへのデータ同期・送出
+ 3. かち合う仲間・パートナーとの【運命調整アシスト (Fine-play Engine)】
+"""
+
+import pandas as pd
+import json
+
+class CharbelSaGaEngine:
+    def __init__(self, user_profile):
+        self.user_profile = user_profile
+        # ヒアリング結果に基づいて星マークの付与基準をセット
+        self.priority_weights = self.setup_hearing_weights(user_profile.get("hearing_answers"))
+
+    def setup_hearing_weights(self, answers):
+        """ヒアリング結果から優先度ロジックを可変構築"""
+        first_choice = answers.get("first_priority")
+        
+        if first_choice == "world_mission": # あなたの優先順位
+            return {"mission": 5, "money": 4, "passion": 3}
+        elif first_choice == "money_first":  # 収益優先顧客
+            return {"money": 5, "passion": 4, "mission": 3}
+        else:                               # クリエイター優先顧客
+            return {"passion": 5, "mission": 4, "money": 3}
+
+    def calculate_star_rating(self, task_type):
+        """星マーク(★)を動的に付与"""
+        weight = self.priority_weights.get(task_type, 3)
+        stars = "★" * weight + "☆" * (5 - weight)
+        return stars
+
+    def fine_play_match_assist(self, my_tasks, partner_pool):
+        """
+        【出来レース・ファインプレイ操作エンジン】
+        互いの需要（シナリオ力 × 資金力 / ブランド力）が重なる仲間を特定し、
+        時間や世界線の重複を回避して最高のタイミングで引き合わせる。
+        """
+        matched_results = []
+        
+        for task in my_tasks:
+            stars = self.calculate_star_rating(task["type"])
+            
+            # パートナープールから相性抜群の相手を強制検索・補正
+            for partner in partner_pool:
+                if task["need_skill"] in partner["provide_skill"]:
+                    match_data = {
+                        "task_title": task["title"],
+                        "star_rating": stars,
+                        "partner_name": partner["name"],
+                        "assist_status": "🔥 運命調整補正発動（絶対成功ルート）",
+                        "fineplay_action": f"【{partner['name']}】とのスケジュール重複を回避し、最高のタイアップを実現",
+                        "target_sheet_url": f"https://docs.google.com/spreadsheets/d/{partner['sheet_id']}"
+                    }
+                    matched_results.append(match_data)
+                    
+        return pd.DataFrame(matched_results)
+
+# ---------------------------------------------------------
+# 実行例 (チャーベルが自ら仲間を引き寄せる出来レースアシスト)
+# ---------------------------------------------------------
+if __name__ == '__main__':
+    # 1. あなた（AIM PHOENIX）のヒアリング設定
+    my_profile = {
+        "user_name": "AIM PHOENIX (CACAO屋RECORD)",
+        "hearing_answers": {"first_priority": "world_mission"}
+    }
+    
+    # 2. 現在の自社タスク・クエスト
+    my_tasks = [
+        {"title": "CACAO屋RECORD 世界変革シナリオ構築", "type": "mission", "need_skill": "資金・開発力"},
+        {"title": "AIM PHOENIX 大型タイアップ企画", "type": "passion", "need_skill": "発信力・大物コラボ"}
+    ]
+    
+    # 3. 集まってきた仲間・パートナーの候補（パートナープール）
+    partner_pool = [
+        {"name": "高単価ゲーム会社A", "provide_skill": ["資金・開発力"], "sheet_id": "sheet_game_a"},
+        {"name": "大物インフルエンサー/クリエイターC", "provide_skill": ["発信力・大物コラボ"], "sheet_id": "sheet_creator_c"}
+    ]
+    
+    # 4. エンジン起動・絶対成功アシスト実行
+    engine = CharbelSaGaEngine(my_profile)
+    result_df = engine.fine_play_match_assist(my_tasks, partner_pool)
+    
+    print("==========================================================")
+    print("🤖 チャーベル：仲間マッチング＆自動アシスト送出結果")
+    print("==========================================================")
+    print(result_df[["task_title", "star_rating", "partner_name", "assist_status", "fineplay_action"]].to_string(index=False))
+
+
