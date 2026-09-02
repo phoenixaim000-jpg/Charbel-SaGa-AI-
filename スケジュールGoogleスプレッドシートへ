@@ -187,3 +187,47 @@ class CharbelAgent:
 
 if __name__ == '__main__':
     agent = CharbelAgent()
+
+
+import pandas as pd
+
+def sort_charbel_emails(email_data_list):
+    """
+    受信したメール・案件データを期日昇順（早い順）および優先度順に自動ソートし
+    チェックボックス用カラムを付与して返します。
+    """
+    df = pd.DataFrame(email_data_list)
+    
+    # 優先度の数値化（①やらなければいけない事 > ②お金 > ③好きな事）
+    priority_map = {
+        "①やらなければいけない事": 1,
+        "②今必要なお金の為": 2,
+        "③好きな事・大物と繋がる": 3
+    }
+    df['priority_rank'] = df['priority'].map(priority_map)
+    
+    # 日時型変換
+    df['deadline_dt'] = pd.to_datetime(df['deadline'])
+    
+    # 1. 期日の早い順、2. 優先度順に並び替え
+    df_sorted = df.sort_values(by=['deadline_dt', 'priority_rank'], ascending=[True, True])
+    
+    # チェックボックスカラムを先頭に追加
+    df_sorted.insert(0, 'done_check', False)
+    
+    # 不要なソート用列を削除
+    df_sorted = df_sorted.drop(columns=['priority_rank', 'deadline_dt'])
+    
+    return df_sorted
+
+# 実行例
+if __name__ == '__main__':
+    sample_emails = [
+        {"priority": "②今必要なお金の為", "deadline": "2026-09-03 15:00", "title": "ゲーム会社A シナリオ案件", "email": "phoenixaim001@gmail.com"},
+        {"priority": "①やらなければいけない事", "deadline": "2026-09-03 10:00", "title": "CACAO屋RECORD 手続き", "email": "enumaamano@gmail.com"},
+        {"priority": "②今必要なお金の為", "deadline": "2026-09-04 11:00", "title": "高単価フリーランスB", "email": "phoenixaim000@gmail.com"}
+    ]
+    
+    sorted_df = sort_charbel_emails(sample_emails)
+    print("✅ 期日順ソート完了:")
+    print(sorted_df.to_string(index=False))
