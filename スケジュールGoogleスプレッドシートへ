@@ -1,0 +1,82 @@
+import datetime
+import os.path
+from google.auth.transport.requests import Request
+from google.oauth2.credentials import Credentials
+from google_auth_oauthlib.flow import InstalledAppFlow
+from googleapiclient.discovery import build
+
+# カレンダー操作権限
+SCOPES = ['https://www.googleapis.com/auth/calendar']
+
+def get_calendar_service():
+    """Google Calendar API 認証・サービス取得"""
+    creds = None
+    if os.path.exists('token.json'):
+        creds = Credentials.from_authorized_user_file('token.json', SCOPES)
+    if not creds or not creds.valid:
+        if creds and creds.expired and creds.refresh_token:
+            creds.refresh(Request())
+        else:
+            flow = InstalledAppFlow.from_client_secrets_file('credentials.json', SCOPES)
+            creds = flow.run_local_server(port=0)
+        with open('token.json', 'w') as token:
+            token.write(creds.to_json())
+    return build('calendar', 'v3', credentials=creds)
+
+def add_mission_to_single_calendar(title, start_time_iso, end_time_iso, description="", is_subquest=False):
+    """
+    指定の単一カレンダーに予定・ミッションを追加する。
+    ダブルブッキング（時間の重複）がある場合は記録を残しつつ統合管理する。
+    """
+    service = get_calendar_service()
+    calendar_id = 'primary'  # 全てを単一のメインカレンダーに統合
+
+    # 1. 重複（ダブルブッキング）チェック
+    events_result = service.events().list(
+        calendarId=calendar_id,
+        timeMin=start_time_iso,
+        timeMax=end_time_iso,
+        singleEvents=True,
+        orderBy='startTime'
+    ).execute()
+    
+    existing_events = events_result.get('items', [])
+    
+    conflict_info = ""
+    if existing_events:
+        conflict_names = [e.get('summary', '無題') for e in existing_events]
+        conflict_info = f"\n⚠️【ダブルブッキング検知・記憶ログ】\n重複していた予定: {', '.join(conflict_names)}\n"
+
+    # 2. クエスト/サブクエスト用のタイトルと説明文設定
+    prefix = "⚔️ [Main Quest]" if not is_subquest else "🛡️ [Sub Quest]"
+    full_title = f"{prefix} {title}"
+    full_description = f"{description}\n{conflict_info}\n--- AIシーナ＆チャメ管理ログ ---"
+
+    event_body = {
+        'summary': full_title,
+        'description': full_description,
+        'start': {'dateTime': start_time_iso, 'timeZone': 'Asia/Tokyo'},
+        'end': {'dateTime': end_time_iso, 'timeZone': 'Asia/Tokyo'},
+        'reminders': {
+            'useDefault': False,
+            'overrides': [
+                {'method': 'popup', 'minutes': 24 * 60}, # 1日前
+                {'method': 'popup', 'minutes': 60},      # 1時間前
+            ],
+        },
+    }
+
+    created_event = service.events().insert(calendarId=calendar_id, body=event_body).execute()
+    print(f"✅ カレンダーに登録完了: {created_event.get('htmlLink')}")
+    return created_event
+
+# 実行例（ミッション追加テスト）
+if __name__ == '__main__':
+    # 例: 2026年9月3日 15:00 - 16:00 の面談・ミッション
+    add_mission_to_single_calendar(
+        title="CACAO屋RECORD・AIM PHOENIX オンライン面談",
+        start_time_iso="2026-09-03T15:00:00+09:00",
+        end_time_iso="2026-09-03T16:00:00+09:00",
+        description="X(AIM PHOENIX)経由のスカウト案件。事前準備コンテンツ確認済。",
+        is_subquest=False
+    )
